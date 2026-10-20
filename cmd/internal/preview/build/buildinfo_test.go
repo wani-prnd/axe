@@ -1,8 +1,10 @@
 package build
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -81,5 +83,45 @@ func TestLoadBuildInfoRejectsInvalidInput(t *testing.T) {
 	info := &BuildInfo{SchemaVersion: 1, AppBundlePath: "/a/A.app", AppBundleID: "a"}
 	if _, err := info.Settings(); err == nil {
 		t.Error("missing -target must be an error")
+	}
+}
+
+func staticBuildInfoConfig(t *testing.T) ProjectConfig {
+	t.Helper()
+	path := writeBuildInfo(t, `{
+	  "schemaVersion": 1, "module": "FeatureUI",
+	  "swiftcArguments": ["-module-name", "FeatureUI", "-target", "arm64-apple-ios17.0-simulator"],
+	  "appBundlePath": "/out/app/MyApp.app", "appBundleId": "com.example.app"
+	}`)
+	return ProjectConfig{BuildInfoPath: path}
+}
+
+// Prepare and Preparer must serve a static build info without touching xcodebuild.
+func TestPrepareAndPreparerWithBuildInfoNeverCallXcodebuild(t *testing.T) {
+	pc := staticBuildInfoConfig(t)
+	dirs := ProjectDirs{Root: t.TempDir(), Build: filepath.Join(t.TempDir(), "build")}
+
+	r := &fakeRunner{}
+	if _, err := Prepare(context.Background(), pc, dirs, false, r); err != nil {
+		t.Fatalf("Prepare: %v", err)
+	}
+	if _, err := NewPreparer(pc, dirs, false, r).Prepare(context.Background()); err != nil {
+		t.Fatalf("Preparer.Prepare: %v", err)
+	}
+	if r.fetchArgs != nil || r.buildArgs != nil {
+		t.Errorf("xcodebuild must not run: fetch=%v build=%v", r.fetchArgs, r.buildArgs)
+	}
+}
+
+// Run is the only path that rebuilds with xcodebuild outside Prepare (watch retry,
+// serve optimistic rebuild); it must refuse a static build info configuration.
+func TestRunRejectsBuildInfo(t *testing.T) {
+	r := &fakeRunner{}
+	err := Run(context.Background(), staticBuildInfoConfig(t), ProjectDirs{Build: t.TempDir()}, r)
+	if err == nil || !strings.Contains(err.Error(), "--build-info") {
+		t.Fatalf("expected explicit build-info error, got %v", err)
+	}
+	if r.buildArgs != nil {
+		t.Errorf("xcodebuild must not run: %v", r.buildArgs)
 	}
 }
