@@ -202,11 +202,17 @@ func compileMainOnlyPipeline(
 		return "", fmt.Errorf("source imports: %w", err)
 	}
 
-	moduleName := bs.ModuleName
-	if cache, err := analysis.LoadIndexStore(ctx, dirs.IndexStorePath(), ""); err == nil {
-		moduleName = moduleNameForSettings(sourceFile, bs, cache)
-	} else {
-		slog.Debug("Failed to load index store for main-only module resolution", "err", err)
+	// The build info names the source file's module; the index store is only read when it does not
+	// (bs.ModuleName is the host app's).
+	moduleName := bs.ModuleForSource(sourceFile)
+	if moduleName == "" {
+		var cache *analysis.IndexStoreCache
+		if c, err := analysis.LoadIndexStore(ctx, dirs.IndexStorePath(), ""); err == nil {
+			cache = c
+		} else {
+			slog.Debug("Failed to load index store for main-only module resolution", "err", err)
+		}
+		moduleName = moduleNameForSource(sourceFile, bs.ModuleName, cache)
 	}
 
 	thunkPaths, err := codegen.GenerateMainOnlyThunk(moduleName, dirs.Thunk, sourceFile, previewSelector, imports, reloadCounter)
