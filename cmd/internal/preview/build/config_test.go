@@ -27,7 +27,13 @@ func TestProjectConfigPaths(t *testing.T) {
 		{
 			name:        "build info without project",
 			pc:          ProjectConfig{BuildInfoPath: "/tmp/bi.json", Root: "/src/App"},
-			wantPrimary: "/src/App",
+			wantPrimary: "/tmp/bi.json",
+			wantRoot:    "/src/App",
+		},
+		{
+			name:        "build info with detected project",
+			pc:          ProjectConfig{BuildInfoPath: "/tmp/bi.json", Project: "/src/App/App.xcodeproj", Root: "/ignored"},
+			wantPrimary: "/tmp/bi.json",
 			wantRoot:    "/src/App",
 		},
 	}

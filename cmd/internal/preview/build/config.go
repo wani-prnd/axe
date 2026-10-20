@@ -63,8 +63,13 @@ func (pc ProjectConfig) XcodebuildArgs() []string {
 }
 
 // PrimaryPath returns the path that identifies the project for cache naming: the
-// workspace or project path (whichever is set), or Root in build info mode without one.
+// BuildInfo file in build info mode (even if a project was auto-detected, so its cache
+// never shares a directory with the xcodebuild mode cache), otherwise the workspace or
+// project path, or Root when neither is set.
 func (pc ProjectConfig) PrimaryPath() string {
+	if pc.BuildInfoPath != "" {
+		return pc.BuildInfoPath
+	}
 	if pc.Workspace != "" {
 		return pc.Workspace
 	}

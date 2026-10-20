@@ -763,3 +763,27 @@ struct V: View {
 		t.Errorf("build Runner must not be called: build=%v fetch=%v", br.buildArgs, br.fetchArgs)
 	}
 }
+
+// With --build-info, a dependency change cannot be rebuilt; the error must come back before
+// any "building" status is sent, or serve clients would stay stuck in that phase.
+func TestRebuildAndRelaunch_BuildInfoFailsBeforeBuildingStatus(t *testing.T) {
+	var buf syncBuffer
+	br := &fakeBuildRunner{}
+	wctx := watchContext{serve: true, streamID: "s", ew: protocol.NewEventWriter(&buf), build: br}
+	pc := ProjectConfig{BuildInfoPath: "/tmp/build-info.json"}
+	ws := &watchState{}
+
+	err := rebuildAndRelaunch(context.Background(), "/tmp/V.swift", pc, &build.Settings{}, previewDirs{}, wctx, ws)
+	if !errors.Is(err, build.ErrRebuildUnsupported) {
+		t.Fatalf("expected ErrRebuildUnsupported, got %v", err)
+	}
+	if events := collectEvents(t, &buf); len(events) != 0 {
+		t.Errorf("no status event expected, got %d", len(events))
+	}
+	if ws.building {
+		t.Error("building flag must not be left set")
+	}
+	if br.buildArgs != nil || br.fetchArgs != nil {
+		t.Errorf("build Runner must not be called")
+	}
+}

@@ -502,6 +502,11 @@ func RunBuild(pc ProjectConfig) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 
+	if pc.UsesBuildInfo() {
+		// Nothing here would be built: the app comes from another build system.
+		return fmt.Errorf("preview build does not support --build-info / BUILD_INFO: %w", build.ErrRebuildUnsupported)
+	}
+
 	dirs, err := build.NewProjectDirs(pc.PrimaryPath())
 	if err != nil {
 		return fmt.Errorf("resolving build directories: %w", err)

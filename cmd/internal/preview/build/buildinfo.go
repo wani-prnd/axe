@@ -115,8 +115,11 @@ func PrepareFromBuildInfo(path string, dirs ProjectDirs) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if info.IndexStorePath != "" {
-		link := dirs.IndexStorePath()
+	link := dirs.IndexStorePath()
+	if info.IndexStorePath == "" {
+		// Drop a link or store left by an earlier run so it is not read as current.
+		_ = os.RemoveAll(link)
+	} else {
 		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 			return nil, fmt.Errorf("creating index store directory: %w", err)
 		}

@@ -125,3 +125,27 @@ func TestRunRejectsBuildInfo(t *testing.T) {
 		t.Errorf("xcodebuild must not run: %v", r.buildArgs)
 	}
 }
+
+// A build info without an index store must not leave a link from an earlier run behind.
+func TestPrepareFromBuildInfoRemovesStaleIndexStoreLink(t *testing.T) {
+	root := t.TempDir()
+	dirs := ProjectDirs{Root: root, Build: filepath.Join(root, "build")}
+	withStore := writeBuildInfo(t, `{
+	  "schemaVersion": 1, "module": "FeatureUI",
+	  "swiftcArguments": ["-module-name", "FeatureUI", "-target", "arm64-apple-ios17.0-simulator"],
+	  "appBundlePath": "/out/app/MyApp.app", "appBundleId": "com.example.app",
+	  "indexStorePath": "/out/index"
+	}`)
+	if _, err := PrepareFromBuildInfo(withStore, dirs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(dirs.IndexStorePath()); err != nil {
+		t.Fatalf("expected index store link after first Prepare: %v", err)
+	}
+	if _, err := PrepareFromBuildInfo(staticBuildInfoConfig(t).BuildInfoPath, dirs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(dirs.IndexStorePath()); !os.IsNotExist(err) {
+		t.Errorf("stale index store link must be removed, Lstat err = %v", err)
+	}
+}

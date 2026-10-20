@@ -260,6 +260,11 @@ func switchFile(ctx context.Context, newSourceFile string, pc ProjectConfig, bs 
 // when parseTrackedFiles returns empty, it retries with sourceFile only.
 // It also uses terminate → install → launch (not the hot-reload deploy path).
 func rebuildAndRelaunch(ctx context.Context, sourceFile string, pc ProjectConfig, bs *build.Settings, dirs previewDirs, wctx watchContext, ws *watchState) error {
+	// Checked up front, not left to build.Run: the "building" status below would otherwise
+	// reach serve clients and never be followed by a ready/error state.
+	if pc.UsesBuildInfo() {
+		return fmt.Errorf("this change needs a rebuild: %w", build.ErrRebuildUnsupported)
+	}
 	ws.mu.Lock()
 	if ws.building {
 		ws.mu.Unlock()
