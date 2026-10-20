@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -58,7 +59,7 @@ func TestBuildInfoSettings(t *testing.T) {
 	}
 
 	dirs := ProjectDirs{Root: t.TempDir(), Build: filepath.Join(t.TempDir(), "build")}
-	result, err := PrepareFromBuildInfo(path, dirs)
+	result, err := PrepareFromBuildInfo(path, "/root", dirs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,16 +137,69 @@ func TestPrepareFromBuildInfoRemovesStaleIndexStoreLink(t *testing.T) {
 	  "appBundlePath": "/out/app/MyApp.app", "appBundleId": "com.example.app",
 	  "indexStorePath": "/out/index"
 	}`)
-	if _, err := PrepareFromBuildInfo(withStore, dirs); err != nil {
+	if _, err := PrepareFromBuildInfo(withStore, root, dirs); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(dirs.IndexStorePath()); err != nil {
 		t.Fatalf("expected index store link after first Prepare: %v", err)
 	}
-	if _, err := PrepareFromBuildInfo(staticBuildInfoConfig(t).BuildInfoPath, dirs); err != nil {
+	if _, err := PrepareFromBuildInfo(staticBuildInfoConfig(t).BuildInfoPath, root, dirs); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Lstat(dirs.IndexStorePath()); !os.IsNotExist(err) {
 		t.Errorf("stale index store link must be removed, Lstat err = %v", err)
+	}
+}
+
+// Relative paths are resolved against the project root; absolute ones are kept.
+func TestPrepareFromBuildInfoResolvesRelativePathsAgainstRoot(t *testing.T) {
+	root := t.TempDir()
+	path := writeBuildInfo(t, `{
+	  "schemaVersion": 1, "module": "FeatureUI",
+	  "swiftcArguments": ["-module-name", "FeatureUI", "-target", "arm64-apple-ios17.0-simulator",
+	                      "-Xcc", "-fmodule-map-file=out/Clib.modulemap",
+	                      "-Xcc", "-fmodule-map-file=/abs/Other.modulemap", "-I", "rel/keep"],
+	  "sourceFiles": ["Sources/rel.swift", "/abs/abs.swift"],
+	  "moduleSearchPaths": ["out/mod", "/abs/mod"],
+	  "frameworkSearchPaths": ["out/fw"],
+	  "indexStorePath": "out/index",
+	  "appBundlePath": "out/app/MyApp.app", "appBundleId": "com.example.app"
+	}`)
+	dirs := ProjectDirs{Root: t.TempDir(), Build: filepath.Join(t.TempDir(), "build")}
+	result, err := PrepareFromBuildInfo(path, root, dirs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := result.Settings
+	if s.BuiltProductsDir != filepath.Join(root, "out/app") {
+		t.Errorf("BuiltProductsDir = %q", s.BuiltProductsDir)
+	}
+	if want := []string{filepath.Join(root, "out/mod"), "/abs/mod"}; !slices.Equal(s.ExtraIncludePaths, want) {
+		t.Errorf("include paths = %v, want %v", s.ExtraIncludePaths, want)
+	}
+	if want := []string{filepath.Join(root, "out/fw")}; !slices.Equal(s.ExtraFrameworkPaths, want) {
+		t.Errorf("framework paths = %v, want %v", s.ExtraFrameworkPaths, want)
+	}
+	if want := []string{filepath.Join(root, "out/Clib.modulemap"), "/abs/Other.modulemap"}; !slices.Equal(s.ExtraModuleMapFiles, want) {
+		t.Errorf("module maps = %v, want %v", s.ExtraModuleMapFiles, want)
+	}
+	if got := s.ModuleForSource(filepath.Join(root, "Sources/rel.swift")); got != "FeatureUI" {
+		t.Errorf("ModuleForSource(relative source) = %q", got)
+	}
+	if got := s.ModuleForSource("/abs/abs.swift"); got != "FeatureUI" {
+		t.Errorf("ModuleForSource(absolute source) = %q", got)
+	}
+	if target, _ := os.Readlink(dirs.IndexStorePath()); target != filepath.Join(root, "out/index") {
+		t.Errorf("index store link = %q", target)
+	}
+}
+
+// Only the module map value of "-Xcc -fmodule-map-file=" is rewritten.
+func TestResolvePathsLeavesOtherSwiftcArgumentsAlone(t *testing.T) {
+	info := &BuildInfo{SwiftcArguments: []string{"-I", "rel", "-Xcc", "-DFOO=bar", "-fmodule-map-file=rel.modulemap", "-Xcc", "-fmodule-map-file=m.modulemap"}}
+	info.resolvePaths("/root")
+	want := []string{"-I", "rel", "-Xcc", "-DFOO=bar", "-fmodule-map-file=rel.modulemap", "-Xcc", "-fmodule-map-file=/root/m.modulemap"}
+	if !slices.Equal(info.SwiftcArguments, want) {
+		t.Errorf("args = %v, want %v", info.SwiftcArguments, want)
 	}
 }

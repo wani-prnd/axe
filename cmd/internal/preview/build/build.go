@@ -26,7 +26,7 @@ type Result struct {
 // and extract compiler paths. This is the high-level entry point.
 func Prepare(ctx context.Context, pc ProjectConfig, dirs ProjectDirs, reuse bool, r Runner) (*Result, error) {
 	if pc.BuildInfoPath != "" {
-		return PrepareFromBuildInfo(pc.BuildInfoPath, dirs)
+		return PrepareFromBuildInfo(pc.BuildInfoPath, pc.ProjectRoot(), dirs)
 	}
 	s, err := FetchSettings(ctx, pc, dirs, r)
 	if err != nil {

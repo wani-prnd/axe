@@ -347,11 +347,13 @@ BUILD_INFO=build-info.json
 | `module` | Module that owns the previewed sources |
 | `configuration`, `provider` | Informational (shown in logs) |
 | `swiftcArguments` | Swift compiler arguments of the module; axe reads `-target`, `-swift-version` and `-Xcc -fmodule-map-file=` |
-| `sourceFiles` | Absolute paths of the module's sources (used to map a file to its module) |
+| `sourceFiles` | Paths of the module's sources (used to map a file to its module) |
 | `moduleSearchPaths`, `frameworkSearchPaths` | `-I` / `-F` paths needed to compile against the module and its dependencies |
-| `indexStorePath` | Optional index store; relative paths recorded in it are resolved against the project root |
+| `indexStorePath` | Optional index store |
 | `transitiveDependencies` | Optional, informational |
 | `appBundlePath`, `appBundleId` | Simulator app that links the module (required) |
+
+Relative paths in BuildInfo (and in its index store) are resolved against the project root (the directory of `--project`/`--workspace`, or the current directory). Absolute paths are used as is.
 
 The producer must build that app with `-Xfrontend -enable-implicit-dynamic -Xfrontend -enable-private-imports` on the
 module (what axe adds through `xcodebuild` otherwise). Read-only build outputs are fine: axe stages a writable copy of

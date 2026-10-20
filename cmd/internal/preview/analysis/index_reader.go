@@ -44,6 +44,28 @@ func xcodeToolchainLibPath() string {
 	return xcodeLibPathVal
 }
 
+// indexReaderCommand builds the axe-index-reader command. With a sourceRoot the reader runs
+// in it: the reader resolves relative paths recorded in the index store against its working
+// directory, which must be the same base LoadIndexStore uses to absolutize them.
+func indexReaderCommand(ctx context.Context, binPath, indexStorePath, sourceRoot string) *exec.Cmd {
+	// The working directory changes below, so the paths must not depend on it.
+	if abs, err := filepath.Abs(indexStorePath); err == nil {
+		indexStorePath = abs
+	}
+	args := []string{indexStorePath}
+	if sourceRoot != "" {
+		if abs, err := filepath.Abs(sourceRoot); err == nil {
+			sourceRoot = abs
+		}
+		args = append(args, "--source-root", sourceRoot)
+	}
+	cmd := procgroup.Command(ctx, binPath, args...)
+	if sourceRoot != "" {
+		cmd.Dir = sourceRoot
+	}
+	return cmd
+}
+
 // readIndexStore invokes axe-index-reader on the given index store path
 // and returns the full IndexStoreResult with per-file data and type→file map.
 // sourceRoot, if non-empty, limits results to files under that directory.
@@ -53,15 +75,10 @@ func readIndexStore(ctx context.Context, indexStorePath string, sourceRoot strin
 		return nil, fmt.Errorf("ensuring index reader: %w", err)
 	}
 
-	args := []string{indexStorePath}
-	if sourceRoot != "" {
-		args = append(args, "--source-root", sourceRoot)
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
-	cmd := procgroup.Command(ctx, binPath, args...)
+	cmd := indexReaderCommand(ctx, binPath, indexStorePath, sourceRoot)
 	if libPath := xcodeToolchainLibPath(); libPath != "" {
 		if existing := os.Getenv("DYLD_LIBRARY_PATH"); existing != "" {
 			libPath = libPath + ":" + existing
