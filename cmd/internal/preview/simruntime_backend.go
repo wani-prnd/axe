@@ -251,7 +251,7 @@ func (sm *StreamManager) compileInitialThunk(ctx context.Context, s *stream, bs 
 	result, err := ExecuteCompileStrategy(ctx, strategy, map[CompileMode]CompileFunc{
 		CompileModeFull: func(context.Context) (string, error) {
 			dylibPath, err := compileAttempt()
-			if err != nil && !builtThisLaunch {
+			if err != nil && !builtThisLaunch && !sm.pc.UsesBuildInfo() {
 				slog.Info("Optimistic launch failed; rebuilding and retrying once", "streamId", s.id, "err", err)
 				sendStatus("building")
 				if buildErr := build.Run(ctx, sm.pc, s.dirs.ProjectDirs, sm.build); buildErr != nil {

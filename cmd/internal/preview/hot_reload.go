@@ -205,6 +205,10 @@ func switchFile(ctx context.Context, newSourceFile string, pc ProjectConfig, bs 
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
+		if pc.UsesBuildInfo() {
+			// xcodebuild cannot rebuild a --build-info app; keep the compile error.
+			return err
+		}
 		// 4. Retry: rebuild project then try compile again.
 		slog.Info("Thunk compile failed, attempting rebuild", "err", err)
 		if buildErr := build.Run(ctx, pc, dirs.ProjectDirs, wctx.build); buildErr != nil {

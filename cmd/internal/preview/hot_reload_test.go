@@ -7,9 +7,11 @@ import (
 	"github.com/k-kohey/axe/internal/preview/build"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/k-kohey/axe/internal/preview/analysis"
+	pb "github.com/k-kohey/axe/internal/preview/analysisproto"
 	"github.com/k-kohey/axe/internal/preview/protocol"
 )
 
@@ -707,5 +709,60 @@ func TestStdinCommand_JSONRoundtrip(t *testing.T) {
 		if got.Type != tc.Type {
 			t.Errorf("type mismatch: got %q, want %q", got.Type, tc.Type)
 		}
+	}
+}
+
+// With --build-info, a thunk compile failure must surface as-is: xcodebuild cannot rebuild
+// the app, so the build Runner is never called and the original compile error is returned.
+func TestSwitchFile_BuildInfoCompileFailureKeepsOriginalError(t *testing.T) {
+	dir := t.TempDir()
+	sourcePath := filepath.Join(dir, "V.swift")
+	if err := os.WriteFile(sourcePath, []byte(`import SwiftUI
+
+struct V: View {
+    var body: some View {
+        Text("Hello")
+    }
+}
+
+#Preview {
+    V()
+}
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	analysis.ResetCache()
+
+	errCompile := errors.New("swiftc exploded")
+	br := &fakeBuildRunner{}
+	pc := ProjectConfig{BuildInfoPath: filepath.Join(dir, "build-info.json")}
+	wctx := watchContext{
+		sources:   &errSourceLister{err: errCompile},
+		toolchain: &errToolchainRunner{err: errCompile},
+		build:     br,
+	}
+
+	cache := analysis.NewIndexStoreCache(map[string]*pb.IndexFileData{
+		sourcePath: {
+			Types: []*pb.IndexTypeInfo{{
+				Name: "V", Kind: pb.TypeKind_TYPE_KIND_STRUCT, AccessLevel: "internal",
+				InheritedTypes: []string{"View"},
+				Members: []*pb.IndexMemberInfo{
+					{Name: "body", Kind: pb.MemberKind_MEMBER_KIND_INSTANCE_PROPERTY, IsComputed: true, Line: 4},
+				},
+			}},
+		},
+	}, map[string][]string{})
+	ws := &watchState{indexCache: newSharedIndexCache(cache)}
+
+	err := switchFile(context.Background(), sourcePath, pc, &build.Settings{ModuleName: "TestModule"}, previewDirs{Thunk: dir}, wctx, ws)
+	if !errors.Is(err, errCompile) {
+		t.Fatalf("expected the original compile error, got %v", err)
+	}
+	if strings.Contains(err.Error(), "rebuild") {
+		t.Errorf("compile error must not be replaced by a rebuild error: %v", err)
+	}
+	if br.buildArgs != nil || br.fetchArgs != nil {
+		t.Errorf("build Runner must not be called: build=%v fetch=%v", br.buildArgs, br.fetchArgs)
 	}
 }
