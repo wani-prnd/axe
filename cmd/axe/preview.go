@@ -8,7 +8,6 @@ import (
 
 	"github.com/k-kohey/axe/internal/platform"
 	"github.com/k-kohey/axe/internal/preview"
-	"github.com/k-kohey/axe/internal/preview/build"
 	"github.com/spf13/cobra"
 )
 
@@ -94,9 +93,6 @@ func runOneshotLogic(sourceArg string) error {
 	if err != nil {
 		return err
 	}
-	if pc, err = resolveBuildInfo(pc, sourceFile); err != nil {
-		return err
-	}
 
 	opts := preview.RunOptions{
 		SourceFile:      sourceFile,
@@ -137,9 +133,6 @@ func runWatchLogic(sourceArg, selector string, reuseBuild, strict, noHeadless bo
 	}
 	sourceFile, err := resolveSourceFile(sourceArg)
 	if err != nil {
-		return err
-	}
-	if pc, err = resolveBuildInfo(pc, sourceFile); err != nil {
 		return err
 	}
 
@@ -231,11 +224,7 @@ func resolveProjectConfig() (preview.ProjectConfig, error) {
 	if buildInfo == "" && rc["BUILD_INFO"] != "" {
 		buildInfo = rc["BUILD_INFO"]
 	}
-	buildInfoCommand := rc["BUILD_INFO_COMMAND"]
-	if err := build.CheckBuildInfoCommand(buildInfoCommand); err != nil {
-		return preview.ProjectConfig{}, err
-	}
-	if buildInfo != "" || buildInfoCommand != "" {
+	if buildInfo != "" {
 		// Build info mode: another build system builds the app; no project or scheme is needed.
 		cwd, err := os.Getwd()
 		if err != nil {
@@ -245,12 +234,9 @@ func resolveProjectConfig() (preview.ProjectConfig, error) {
 		if err != nil {
 			return pc, err
 		}
-		if buildInfo != "" {
-			if pc.BuildInfoPath, err = filepath.Abs(buildInfo); err != nil {
-				return pc, err
-			}
+		if pc.BuildInfoPath, err = filepath.Abs(buildInfo); err != nil {
+			return pc, err
 		}
-		pc.BuildInfoCommand = buildInfoCommand
 		pc.Root = cwd
 		return pc, nil
 	}
@@ -275,7 +261,7 @@ func init() {
 	previewCmd.PersistentFlags().StringVar(&previewScheme, "scheme", "", "Xcode scheme to build")
 	previewCmd.PersistentFlags().StringVar(&previewConfiguration, "configuration", "", "build configuration (e.g. Debug, Release)")
 	previewCmd.PersistentFlags().StringVar(&previewDevice, "device", "", "simulator UDID to use for preview (overrides .axerc DEVICE and global default)")
-	previewCmd.PersistentFlags().StringVar(&previewBuildInfo, "build-info", "", "BuildInfo JSON describing an already built app; skips xcodebuild (overrides .axerc BUILD_INFO / BUILD_INFO_COMMAND)")
+	previewCmd.PersistentFlags().StringVar(&previewBuildInfo, "build-info", "", "BuildInfo JSON describing an already built app; skips xcodebuild (overrides .axerc BUILD_INFO)")
 
 	// Oneshot-specific flags.
 	previewCmd.Flags().StringVar(&previewSelector, "preview", "", "select preview by title or index (e.g. --preview \"Dark Mode\" or --preview 1)")

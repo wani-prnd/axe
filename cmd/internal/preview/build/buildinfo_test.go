@@ -1,10 +1,8 @@
 package build
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -83,79 +81,5 @@ func TestLoadBuildInfoRejectsInvalidInput(t *testing.T) {
 	info := &BuildInfo{SchemaVersion: 1, AppBundlePath: "/a/A.app", AppBundleID: "a"}
 	if _, err := info.Settings(); err == nil {
 		t.Error("missing -target must be an error")
-	}
-}
-
-// isolateUserCache points os.UserCacheDir (HOME on darwin, XDG_CACHE_HOME elsewhere) at a temporary directory.
-func isolateUserCache(t *testing.T) {
-	t.Helper()
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-}
-
-func TestRunBuildInfoCommandDoesNotEvaluateValues(t *testing.T) {
-	const printJSON = `printf '{"f":"%s","d":"%s"}' `
-	cases := []struct {
-		name, template, file, device string
-	}{
-		// Unquoted expansion is word-split, so these values contain no whitespace.
-		{"unquoted", printJSON + `$AXE_PREVIEW_FILE $AXE_PREVIEW_DEVICE`, "$(id)'x.swift", "$(id)'dev"},
-		{"double quoted", printJSON + `"$AXE_PREVIEW_FILE" "$AXE_PREVIEW_DEVICE"`, "$(printf INJECTED)'x.swift", "$(printf INJECTED)'dev"},
-		{"double quoted, spaces", printJSON + `"$AXE_PREVIEW_FILE" "$AXE_PREVIEW_DEVICE"`, "a b/$(touch PWNED)`touch PWNED`.swift", "$(touch PWNED) dev"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			isolateUserCache(t)
-			root := t.TempDir() // the command runs here, so a substituted touch would create root/PWNED
-			path, err := RunBuildInfoCommand(ProjectConfig{Root: root, BuildInfoCommand: tc.template}, tc.file, tc.device)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if _, err := os.Stat(filepath.Join(root, "PWNED")); err == nil {
-				t.Fatal("command substitution in a value was executed")
-			}
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			var got struct {
-				F string `json:"f"`
-				D string `json:"d"`
-			}
-			if err := json.Unmarshal(data, &got); err != nil {
-				t.Fatalf("%v: %s", err, data)
-			}
-			if got.F != tc.file || got.D != tc.device {
-				t.Errorf("values changed: file=%q device=%q", got.F, got.D)
-			}
-		})
-	}
-}
-
-func TestRunBuildInfoCommandDefaultDevice(t *testing.T) {
-	isolateUserCache(t)
-	path, err := RunBuildInfoCommand(ProjectConfig{Root: t.TempDir(), BuildInfoCommand: `printf %s "$AXE_PREVIEW_DEVICE"`}, "/a.swift", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if data, _ := os.ReadFile(path); string(data) != "generic" {
-		t.Errorf("device = %q, want generic", data)
-	}
-}
-
-func TestCheckBuildInfoCommandRejectsPlaceholders(t *testing.T) {
-	for _, command := range []string{`./build "$AXE_PREVIEW_FILE"`, `file="$AXE_PREVIEW_FILE"; ./build "${file}" "${device:-generic}"`} {
-		if err := CheckBuildInfoCommand(command); err != nil {
-			t.Errorf("%q: %v", command, err)
-		}
-	}
-	for _, template := range []string{`./build {file}`, `./build "{file}"`, `./build --device {device}`} {
-		err := CheckBuildInfoCommand(template)
-		if err == nil {
-			t.Fatalf("%q: expected error", template)
-		}
-		if !strings.Contains(err.Error(), `"$AXE_PREVIEW_FILE"`) || !strings.Contains(err.Error(), `"$AXE_PREVIEW_DEVICE"`) {
-			t.Errorf("%q: error lacks replacement hint: %v", template, err)
-		}
 	}
 }

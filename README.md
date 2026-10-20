@@ -315,18 +315,14 @@ Projects built by something other than `xcodebuild` (e.g. Bazel) can describe th
 instead. axe then never runs `xcodebuild`; it compiles preview thunks with the given compiler inputs and launches the
 given app.
 
-Point axe at a file, or at a command that builds the app and prints the JSON to stdout:
+Point axe at the file with `--build-info <file>`, or with `BUILD_INFO` in `.axerc`:
 
 ```
 # .axerc
 BUILD_INFO=build-info.json
-# or
-BUILD_INFO_COMMAND=./tools/preview-build-info "$AXE_PREVIEW_FILE" --device "$AXE_PREVIEW_DEVICE"
 ```
 
-The command runs with `AXE_PREVIEW_FILE` set to the absolute path of the previewed source file and `AXE_PREVIEW_DEVICE`
-set to the simulator UDID (`generic` when none is selected); quote them as shown. With `BUILD_INFO_COMMAND`,
-`preview watch` runs the command again when a change needs a full rebuild. `PROJECT`, `WORKSPACE` and `SCHEME` are not needed in this mode.
+`PROJECT`, `WORKSPACE` and `SCHEME` are not needed in this mode.
 
 ```json
 {
