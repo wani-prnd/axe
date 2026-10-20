@@ -3,6 +3,7 @@ package preview
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -251,10 +252,14 @@ func (sm *StreamManager) compileInitialThunk(ctx context.Context, s *stream, bs 
 	result, err := ExecuteCompileStrategy(ctx, strategy, map[CompileMode]CompileFunc{
 		CompileModeFull: func(context.Context) (string, error) {
 			dylibPath, err := compileAttempt()
-			if err != nil && !builtThisLaunch && !sm.pc.UsesBuildInfo() {
+			if err != nil && !builtThisLaunch {
 				slog.Info("Optimistic launch failed; rebuilding and retrying once", "streamId", s.id, "err", err)
 				sendStatus("building")
 				if buildErr := build.Run(ctx, sm.pc, s.dirs.ProjectDirs, sm.build); buildErr != nil {
+					if errors.Is(buildErr, build.ErrRebuildUnsupported) {
+						// The app is not xcodebuild's to rebuild; keep the compile error.
+						return "", err
+					}
 					return "", fmt.Errorf("build failed: %w", buildErr)
 				}
 				build.ExtractCompilerPaths(ctx, bs, s.dirs.ProjectDirs)

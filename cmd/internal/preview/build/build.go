@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -114,12 +115,16 @@ func FetchSettings(ctx context.Context, pc ProjectConfig, dirs ProjectDirs, r Ru
 	return s, nil
 }
 
+// ErrRebuildUnsupported is returned by Run when the app is described by build info:
+// another build system owns the build, so xcodebuild has nothing to rebuild.
+var ErrRebuildUnsupported = errors.New("xcodebuild cannot rebuild an app described by --build-info / BUILD_INFO; build it with your build system")
+
 // Run executes "xcodebuild build" with the flags required for axe preview
 // (dynamic replacement and private imports).
 func Run(ctx context.Context, pc ProjectConfig, dirs ProjectDirs, r Runner) error {
 	if pc.UsesBuildInfo() {
 		// The app is built by another build system; there is no project/scheme to hand to xcodebuild.
-		return fmt.Errorf("xcodebuild rebuild is not supported with --build-info / BUILD_INFO; build the app with your build system")
+		return ErrRebuildUnsupported
 	}
 	lock := buildlock.New(dirs.Build)
 	if err := lock.Lock(ctx); err != nil {

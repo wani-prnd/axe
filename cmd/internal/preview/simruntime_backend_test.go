@@ -680,8 +680,7 @@ func assertStoppedMessageContains(t *testing.T, buf *syncBuffer, want string) {
 // the original compile error is kept and the compile strategy's main-only fallback still runs.
 func TestCompileInitialThunk_BuildInfoSkipsRebuild(t *testing.T) {
 	dir := t.TempDir()
-	file := filepath.Join(dir, "V.swift")
-	if err := os.WriteFile(file, []byte(`import SwiftUI
+	file := writeFixtureFile(t, dir, "V.swift", `import SwiftUI
 
 struct V: View {
     var body: some View {
@@ -692,9 +691,7 @@ struct V: View {
 #Preview {
     V()
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`)
 	analysis.ResetCache()
 
 	errCompile := errors.New("swiftc exploded")

@@ -682,8 +682,7 @@ struct HelperView: View {
 
 func TestCompileMainOnlyPipelineUsesBuildInfoModuleWithoutIndexStore(t *testing.T) {
 	dir := t.TempDir()
-	sourcePath := filepath.Join(dir, "FeatureView.swift")
-	if err := os.WriteFile(sourcePath, []byte(`import SwiftUI
+	sourcePath := writeFixtureFile(t, dir, "FeatureView.swift", `import SwiftUI
 
 struct FeatureView: View {
     var body: some View {
@@ -694,9 +693,7 @@ struct FeatureView: View {
 #Preview {
     FeatureView()
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`)
 
 	bs := &build.Settings{
 		ModuleName:       "HostApp",

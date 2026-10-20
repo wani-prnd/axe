@@ -162,7 +162,8 @@ func compileFullThunkFiles(
 	return dylibPath, nil
 }
 
-// moduleNameForSettings prefers the module recorded in build info, then the index store.
+// moduleNameForSettings prefers the module recorded in build info, then the index store;
+// bs.ModuleName (the host app) is the last fallback.
 func moduleNameForSettings(sourceFile string, bs *build.Settings, cache *analysis.IndexStoreCache) string {
 	if m := bs.ModuleForSource(sourceFile); m != "" {
 		return m
@@ -204,16 +205,15 @@ func compileMainOnlyPipeline(
 
 	// The build info names the source file's module; the index store is only read when it does not
 	// (bs.ModuleName is the host app's).
-	moduleName := bs.ModuleForSource(sourceFile)
-	if moduleName == "" {
-		var cache *analysis.IndexStoreCache
-		if c, err := analysis.LoadIndexStore(ctx, dirs.IndexStorePath(), ""); err == nil {
-			cache = c
-		} else {
+	var cache *analysis.IndexStoreCache
+	if bs.ModuleForSource(sourceFile) == "" {
+		c, err := analysis.LoadIndexStore(ctx, dirs.IndexStorePath(), "")
+		if err != nil {
 			slog.Debug("Failed to load index store for main-only module resolution", "err", err)
 		}
-		moduleName = moduleNameForSource(sourceFile, bs.ModuleName, cache)
+		cache = c
 	}
+	moduleName := moduleNameForSettings(sourceFile, bs, cache)
 
 	thunkPaths, err := codegen.GenerateMainOnlyThunk(moduleName, dirs.Thunk, sourceFile, previewSelector, imports, reloadCounter)
 	if err != nil {

@@ -2,6 +2,7 @@ package preview
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -205,13 +206,13 @@ func switchFile(ctx context.Context, newSourceFile string, pc ProjectConfig, bs 
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		if pc.UsesBuildInfo() {
-			// xcodebuild cannot rebuild a --build-info app; keep the compile error.
-			return err
-		}
 		// 4. Retry: rebuild project then try compile again.
 		slog.Info("Thunk compile failed, attempting rebuild", "err", err)
 		if buildErr := build.Run(ctx, pc, dirs.ProjectDirs, wctx.build); buildErr != nil {
+			if errors.Is(buildErr, build.ErrRebuildUnsupported) {
+				// The app is not xcodebuild's to rebuild; keep the compile error.
+				return err
+			}
 			return fmt.Errorf("rebuild: %w", buildErr)
 		}
 		dylibPath, err = compileFullThunkFiles(ctx, newSourceFile, files, cache, bs, dirs, "0", counter, wctx.toolchain)
@@ -278,10 +279,6 @@ func rebuildAndRelaunch(ctx context.Context, sourceFile string, pc ProjectConfig
 	fmt.Fprintln(os.Stderr, "\nDependency changed, rebuilding...")
 	sendWatchStatus(wctx, "building")
 
-	if pc.UsesBuildInfo() {
-		// The build belongs to another build system (e.g. Bazel), not to xcodebuild.
-		return fmt.Errorf("this change needs a rebuild, which a --build-info file cannot provide; run the build again")
-	}
 	if err := build.Run(ctx, pc, dirs.ProjectDirs, wctx.build); err != nil {
 		return fmt.Errorf("incremental build: %w", err)
 	}

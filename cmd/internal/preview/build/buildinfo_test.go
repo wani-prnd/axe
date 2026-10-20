@@ -2,9 +2,9 @@ package build
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -118,8 +118,8 @@ func TestPrepareAndPreparerWithBuildInfoNeverCallXcodebuild(t *testing.T) {
 func TestRunRejectsBuildInfo(t *testing.T) {
 	r := &fakeRunner{}
 	err := Run(context.Background(), staticBuildInfoConfig(t), ProjectDirs{Build: t.TempDir()}, r)
-	if err == nil || !strings.Contains(err.Error(), "--build-info") {
-		t.Fatalf("expected explicit build-info error, got %v", err)
+	if !errors.Is(err, ErrRebuildUnsupported) {
+		t.Fatalf("expected ErrRebuildUnsupported, got %v", err)
 	}
 	if r.buildArgs != nil {
 		t.Errorf("xcodebuild must not run: %v", r.buildArgs)

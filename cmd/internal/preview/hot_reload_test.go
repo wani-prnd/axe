@@ -716,8 +716,7 @@ func TestStdinCommand_JSONRoundtrip(t *testing.T) {
 // the app, so the build Runner is never called and the original compile error is returned.
 func TestSwitchFile_BuildInfoCompileFailureKeepsOriginalError(t *testing.T) {
 	dir := t.TempDir()
-	sourcePath := filepath.Join(dir, "V.swift")
-	if err := os.WriteFile(sourcePath, []byte(`import SwiftUI
+	sourcePath := writeFixtureFile(t, dir, "V.swift", `import SwiftUI
 
 struct V: View {
     var body: some View {
@@ -728,9 +727,7 @@ struct V: View {
 #Preview {
     V()
 }
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+`)
 	analysis.ResetCache()
 
 	errCompile := errors.New("swiftc exploded")
@@ -742,7 +739,7 @@ struct V: View {
 		build:     br,
 	}
 
-	cache := analysis.NewIndexStoreCache(map[string]*pb.IndexFileData{
+	cache := buildTestCache(map[string]*pb.IndexFileData{
 		sourcePath: {
 			Types: []*pb.IndexTypeInfo{{
 				Name: "V", Kind: pb.TypeKind_TYPE_KIND_STRUCT, AccessLevel: "internal",
@@ -752,7 +749,7 @@ struct V: View {
 				},
 			}},
 		},
-	}, map[string][]string{})
+	})
 	ws := &watchState{indexCache: newSharedIndexCache(cache)}
 
 	err := switchFile(context.Background(), sourcePath, pc, &build.Settings{ModuleName: "TestModule"}, previewDirs{Thunk: dir}, wctx, ws)
