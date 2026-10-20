@@ -218,7 +218,7 @@ func (sm *StreamManager) compileInitialThunk(ctx context.Context, s *stream, bs 
 
 	compileAttempt := func() (string, error) {
 		sendStatus("compiling_thunk")
-		projectRoot := filepath.Dir(sm.pc.PrimaryPath())
+		projectRoot := sm.pc.ProjectRoot()
 		cache, cacheErr := analysis.LoadIndexStore(ctx, s.dirs.IndexStorePath(), projectRoot)
 		if cacheErr != nil && ctx.Err() == nil {
 			slog.Warn("Index store cache unavailable for stream", "streamId", s.id, "err", cacheErr)

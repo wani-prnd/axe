@@ -40,7 +40,7 @@ func runWatcher(ctx context.Context, sourceFile string, pc ProjectConfig,
 	idbErrCh <-chan error, bootDiedCh <-chan struct{}) error {
 
 	// Set up shared file watcher.
-	watchRoot := filepath.Dir(pc.PrimaryPath())
+	watchRoot := pc.ProjectRoot()
 	sw, err := watch.NewSharedWatcher(ctx, watchRoot, wctx.sources)
 	if err != nil {
 		return fmt.Errorf("creating file watcher: %w", err)
@@ -346,7 +346,7 @@ func rebuildAndRelaunch(ctx context.Context, sourceFile string, pc ProjectConfig
 
 	// Reload Index Store cache after rebuild (index data is updated by the build).
 	// Update the shared cache so all streams (in multi-stream mode) see fresh data.
-	projectRoot := filepath.Dir(pc.PrimaryPath())
+	projectRoot := pc.ProjectRoot()
 	newCache, cacheErr := analysis.LoadIndexStore(ctx, dirs.IndexStorePath(), projectRoot)
 	if cacheErr != nil && ctx.Err() == nil {
 		slog.Warn("Failed to reload index store cache after rebuild", "err", cacheErr)

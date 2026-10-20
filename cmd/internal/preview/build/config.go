@@ -62,7 +62,8 @@ func (pc ProjectConfig) XcodebuildArgs() []string {
 	return args
 }
 
-// PrimaryPath returns the workspace or project path (whichever is set).
+// PrimaryPath returns the path that identifies the project for cache naming: the
+// workspace or project path (whichever is set), or Root in build info mode without one.
 func (pc ProjectConfig) PrimaryPath() string {
 	if pc.Workspace != "" {
 		return pc.Workspace
@@ -70,7 +71,17 @@ func (pc ProjectConfig) PrimaryPath() string {
 	if pc.Project != "" {
 		return pc.Project
 	}
-	// Build info mode without a project: a path inside the root, so that filepath.Dir
-	// (used to derive the project root) yields the root itself.
-	return filepath.Join(pc.Root, ".axe-build-info")
+	return pc.Root
+}
+
+// ProjectRoot returns the directory that holds the project sources: the directory
+// of the workspace or project, or Root in build info mode without one.
+func (pc ProjectConfig) ProjectRoot() string {
+	if pc.Workspace != "" {
+		return filepath.Dir(pc.Workspace)
+	}
+	if pc.Project != "" {
+		return filepath.Dir(pc.Project)
+	}
+	return pc.Root
 }

@@ -168,7 +168,7 @@ func Run(opts RunOptions) error {
 	compilers := map[CompileMode]CompileFunc{
 		CompileModeFull: func(ctx context.Context) (string, error) {
 			// Load Index Store cache for fast in-memory dependency resolution.
-			projectRoot := filepath.Dir(opts.PC.PrimaryPath())
+			projectRoot := opts.PC.ProjectRoot()
 			rawCache, cacheErr := analysis.LoadIndexStore(ctx, dirs.IndexStorePath(), projectRoot)
 			if cacheErr != nil && ctx.Err() == nil {
 				slog.Warn("Index store cache unavailable", "err", cacheErr)
@@ -478,7 +478,7 @@ func runServeWithDeps(ctx context.Context, pc ProjectConfig, strict bool, maxThu
 	sm := NewRuntimeStreamManager(runtime, ew, pc, deviceSetPath, preparer, br, tc, ar, fc, sl, strict, maxThunkFiles, preThunkDepth)
 
 	// Start shared file watcher for all streams.
-	watcher, err := deps.newWatcher(ctx, filepath.Dir(pc.PrimaryPath()), sl)
+	watcher, err := deps.newWatcher(ctx, pc.ProjectRoot(), sl)
 	if err != nil {
 		return fmt.Errorf("creating shared file watcher: %w", err)
 	}
