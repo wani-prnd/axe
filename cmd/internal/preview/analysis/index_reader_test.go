@@ -19,8 +19,6 @@ func TestXcodeToolchainLibPath(t *testing.T) {
 	}
 }
 
-// The reader resolves relative paths in the index store against its working directory, so it
-// must run in the source root that LoadIndexStore resolves them against.
 func TestIndexReaderCommandRunsInSourceRoot(t *testing.T) {
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
@@ -40,18 +38,5 @@ func TestIndexReaderCommandRunsInSourceRoot(t *testing.T) {
 	}
 	if want := []string{"/bin/reader", "/idx"}; !slices.Equal(cmd.Args, want) {
 		t.Errorf("Args without sourceRoot = %v, want %v", cmd.Args, want)
-	}
-}
-
-// A relative source root must not be resolved twice (once by Dir, once by the reader).
-func TestIndexReaderCommandMakesPathsAbsolute(t *testing.T) {
-	t.Chdir(t.TempDir())
-	cwd, _ := os.Getwd()
-	cmd := indexReaderCommand(context.Background(), "/bin/reader", "idx", "src")
-	if want := filepath.Join(cwd, "src"); cmd.Dir != want || cmd.Args[3] != want {
-		t.Errorf("Dir = %q, source-root = %q, want %q", cmd.Dir, cmd.Args[3], want)
-	}
-	if cmd.Args[1] != filepath.Join(cwd, "idx") {
-		t.Errorf("index store arg = %q", cmd.Args[1])
 	}
 }

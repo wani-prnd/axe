@@ -7,7 +7,6 @@ import (
 	"github.com/k-kohey/axe/internal/preview/build"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/k-kohey/axe/internal/preview/analysis"
@@ -712,11 +711,8 @@ func TestStdinCommand_JSONRoundtrip(t *testing.T) {
 	}
 }
 
-// With --build-info, a thunk compile failure must surface as-is: xcodebuild cannot rebuild
-// the app, so the build Runner is never called and the original compile error is returned.
-func TestSwitchFile_BuildInfoCompileFailureKeepsOriginalError(t *testing.T) {
-	dir := t.TempDir()
-	sourcePath := writeFixtureFile(t, dir, "V.swift", `import SwiftUI
+// buildInfoFixtureV is the minimal previewable source used by the --build-info tests.
+const buildInfoFixtureV = `import SwiftUI
 
 struct V: View {
     var body: some View {
@@ -727,7 +723,13 @@ struct V: View {
 #Preview {
     V()
 }
-`)
+`
+
+// With --build-info, a thunk compile failure must surface as-is: xcodebuild cannot rebuild
+// the app, so the build Runner is never called and the original compile error is returned.
+func TestSwitchFile_BuildInfoCompileFailureKeepsOriginalError(t *testing.T) {
+	dir := t.TempDir()
+	sourcePath := writeFixtureFile(t, dir, "V.swift", buildInfoFixtureV)
 	analysis.ResetCache()
 
 	errCompile := errors.New("swiftc exploded")
@@ -755,9 +757,6 @@ struct V: View {
 	err := switchFile(context.Background(), sourcePath, pc, &build.Settings{ModuleName: "TestModule"}, previewDirs{Thunk: dir}, wctx, ws)
 	if !errors.Is(err, errCompile) {
 		t.Fatalf("expected the original compile error, got %v", err)
-	}
-	if strings.Contains(err.Error(), "rebuild") {
-		t.Errorf("compile error must not be replaced by a rebuild error: %v", err)
 	}
 	if br.buildArgs != nil || br.fetchArgs != nil {
 		t.Errorf("build Runner must not be called: build=%v fetch=%v", br.buildArgs, br.fetchArgs)

@@ -16,8 +16,7 @@ type ProjectConfig struct {
 	Scheme        string
 	Configuration string // e.g. "Debug", "Release"; empty means xcodebuild default
 
-	// BuildInfoPath is a BuildInfo JSON file (see buildinfo.go). When set, axe uses it
-	// instead of running xcodebuild, so any build system can drive previews.
+	// BuildInfoPath is a BuildInfo JSON file (buildinfo.go); when set, xcodebuild is not run.
 	BuildInfoPath string
 	// Root is the project root used when neither Project nor Workspace is set (build info mode).
 	Root string
@@ -62,12 +61,10 @@ func (pc ProjectConfig) XcodebuildArgs() []string {
 	return args
 }
 
-// PrimaryPath returns the path that identifies the project for cache naming: the
-// BuildInfo file in build info mode (even if a project was auto-detected, so its cache
-// never shares a directory with the xcodebuild mode cache), otherwise the workspace or
-// project path, or Root when neither is set.
+// PrimaryPath returns the path that names the project's cache: the BuildInfo file in build
+// info mode (so it never shares a cache with xcodebuild mode), else workspace, project, or Root.
 func (pc ProjectConfig) PrimaryPath() string {
-	if pc.BuildInfoPath != "" {
+	if pc.UsesBuildInfo() {
 		return pc.BuildInfoPath
 	}
 	if pc.Workspace != "" {

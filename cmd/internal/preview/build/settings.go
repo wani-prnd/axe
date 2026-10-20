@@ -27,7 +27,7 @@ type Settings struct {
 
 // ModuleForSource returns the module of sourceFile recorded in SourceModules, or "".
 func (s *Settings) ModuleForSource(sourceFile string) string {
-	if s == nil || s.SourceModules == nil {
+	if s == nil {
 		return ""
 	}
 	if m, ok := s.SourceModules[sourceFile]; ok {
@@ -47,9 +47,6 @@ func (s *Settings) Clone() *Settings {
 	c.ExtraIncludePaths = append([]string(nil), s.ExtraIncludePaths...)
 	c.ExtraFrameworkPaths = append([]string(nil), s.ExtraFrameworkPaths...)
 	c.ExtraModuleMapFiles = append([]string(nil), s.ExtraModuleMapFiles...)
-	if s.SourceModules != nil {
-		c.SourceModules = make(map[string]string, len(s.SourceModules))
-		maps.Copy(c.SourceModules, s.SourceModules)
-	}
+	c.SourceModules = maps.Clone(s.SourceModules)
 	return &c
 }

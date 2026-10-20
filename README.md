@@ -315,14 +315,7 @@ Projects built by something other than `xcodebuild` (e.g. Bazel) can describe th
 instead. axe then never runs `xcodebuild`; it compiles preview thunks with the given compiler inputs and launches the
 given app.
 
-Point axe at the file with `--build-info <file>`, or with `BUILD_INFO` in `.axerc`:
-
-```
-# .axerc
-BUILD_INFO=build-info.json
-```
-
-`PROJECT`, `WORKSPACE` and `SCHEME` are not needed in this mode.
+Point axe at the file with `--build-info <file>` or `BUILD_INFO=<file>` in `.axerc`. `PROJECT`, `WORKSPACE` and `SCHEME` are not needed in this mode.
 
 ```json
 {
@@ -341,23 +334,7 @@ BUILD_INFO=build-info.json
 }
 ```
 
-| Field | Description |
-|---|---|
-| `schemaVersion` | Must be `1` |
-| `module` | Module that owns the previewed sources |
-| `configuration`, `provider` | Informational (shown in logs) |
-| `swiftcArguments` | Swift compiler arguments of the module; axe reads `-target`, `-swift-version` and `-Xcc -fmodule-map-file=` |
-| `sourceFiles` | Paths of the module's sources (used to map a file to its module) |
-| `moduleSearchPaths`, `frameworkSearchPaths` | `-I` / `-F` paths needed to compile against the module and its dependencies |
-| `indexStorePath` | Optional index store |
-| `transitiveDependencies` | Optional, informational |
-| `appBundlePath`, `appBundleId` | Simulator app that links the module (required) |
-
-Relative paths in BuildInfo (and in its index store) are resolved against the project root (the directory of `--project`/`--workspace`, or the current directory). Absolute paths are used as is.
-
-The producer must build that app with `-Xfrontend -enable-implicit-dynamic -Xfrontend -enable-private-imports` on the
-module (what axe adds through `xcodebuild` otherwise). Read-only build outputs are fine: axe stages a writable copy of
-the app.
+`schemaVersion` (`1`), `appBundlePath` and `appBundleId` (the simulator app that links the module) are required, and `swiftcArguments` must include an iOS simulator `-target`; `module` owns the previewed `sourceFiles`, and the rest is optional. axe reads `-target`, `-swift-version` and `-Xcc -fmodule-map-file=` from `swiftcArguments`, and takes `-I` / `-F` paths from `moduleSearchPaths` / `frameworkSearchPaths`. Relative paths (including those in the index store) are resolved against the project root (the directory of `--project`/`--workspace`, or the current directory); absolute paths are used as is. The producer must build the app with `-Xfrontend -enable-implicit-dynamic -Xfrontend -enable-private-imports` on the module, which axe otherwise adds through `xcodebuild`. Read-only build outputs are fine: axe stages a writable copy of the app.
 
 ## Known Issues
 

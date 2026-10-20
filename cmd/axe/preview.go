@@ -226,10 +226,6 @@ func resolveProjectConfig() (preview.ProjectConfig, error) {
 	}
 	if buildInfo != "" {
 		// Build info mode: another build system builds the app; no project or scheme is needed.
-		cwd, err := os.Getwd()
-		if err != nil {
-			return preview.ProjectConfig{}, err
-		}
 		pc, err := preview.NewProjectConfig(project, workspace, scheme, configuration)
 		if err != nil {
 			return pc, err
@@ -237,8 +233,8 @@ func resolveProjectConfig() (preview.ProjectConfig, error) {
 		if pc.BuildInfoPath, err = filepath.Abs(buildInfo); err != nil {
 			return pc, err
 		}
-		pc.Root = cwd
-		return pc, nil
+		pc.Root, err = os.Getwd()
+		return pc, err
 	}
 
 	if project != "" && workspace != "" {

@@ -10,10 +10,8 @@ import (
 	"strings"
 )
 
-// BuildInfo is the build-system-independent compile information emitted by an external
-// build tool, e.g. a Bazel wrapper (schemaVersion 1). When a BuildInfo file is given,
-// axe does not invoke xcodebuild: the producer is responsible for building the app
-// with `-enable-implicit-dynamic` and `-enable-private-imports`.
+// BuildInfo is the compile information an external build tool (e.g. Bazel) emits instead of
+// xcodebuild; the producer builds the app with `-enable-implicit-dynamic` and `-enable-private-imports`.
 type BuildInfo struct {
 	SchemaVersion          int      `json:"schemaVersion"`
 	Module                 string   `json:"module"`
@@ -82,11 +80,19 @@ func (b *BuildInfo) Settings() (*Settings, error) {
 		OriginalBundleID: b.AppBundleID,
 		BuiltProductsDir: filepath.Dir(b.AppBundlePath),
 	}
+	// dedup drops repeats and the built products dir (already searched), keeping order.
+	dedup := func(paths []string) (out []string) {
+		seen := map[string]bool{s.BuiltProductsDir: true}
+		for _, p := range paths {
+			if !seen[p] {
+				seen[p] = true
+				out = append(out, p)
+			}
+		}
+		return out
+	}
 	args := b.SwiftcArguments
-	seenI := map[string]bool{s.BuiltProductsDir: true}
-	seenF := map[string]bool{s.BuiltProductsDir: true}
-	for i := range args {
-		arg := args[i]
+	for i, arg := range args {
 		next := ""
 		if i+1 < len(args) {
 			next = args[i+1]
@@ -102,18 +108,8 @@ func (b *BuildInfo) Settings() (*Settings, error) {
 			s.ExtraModuleMapFiles = append(s.ExtraModuleMapFiles, strings.TrimPrefix(next, "-fmodule-map-file="))
 		}
 	}
-	for _, p := range b.ModuleSearchPaths {
-		if !seenI[p] {
-			seenI[p] = true
-			s.ExtraIncludePaths = append(s.ExtraIncludePaths, p)
-		}
-	}
-	for _, p := range b.FrameworkSearchPaths {
-		if !seenF[p] {
-			seenF[p] = true
-			s.ExtraFrameworkPaths = append(s.ExtraFrameworkPaths, p)
-		}
-	}
+	s.ExtraIncludePaths = dedup(b.ModuleSearchPaths)
+	s.ExtraFrameworkPaths = dedup(b.FrameworkSearchPaths)
 	s.SourceModules = map[string]string{}
 	for _, f := range b.SourceFiles {
 		s.SourceModules[f] = b.Module

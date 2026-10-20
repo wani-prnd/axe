@@ -44,19 +44,12 @@ func xcodeToolchainLibPath() string {
 	return xcodeLibPathVal
 }
 
-// indexReaderCommand builds the axe-index-reader command. With a sourceRoot the reader runs
-// in it: the reader resolves relative paths recorded in the index store against its working
-// directory, which must be the same base LoadIndexStore uses to absolutize them.
+// indexReaderCommand builds the axe-index-reader command. The reader resolves relative paths
+// recorded in the index store against its working directory, so it runs in sourceRoot, the
+// base LoadIndexStore uses to absolutize them. Both paths must be absolute.
 func indexReaderCommand(ctx context.Context, binPath, indexStorePath, sourceRoot string) *exec.Cmd {
-	// The working directory changes below, so the paths must not depend on it.
-	if abs, err := filepath.Abs(indexStorePath); err == nil {
-		indexStorePath = abs
-	}
 	args := []string{indexStorePath}
 	if sourceRoot != "" {
-		if abs, err := filepath.Abs(sourceRoot); err == nil {
-			sourceRoot = abs
-		}
 		args = append(args, "--source-root", sourceRoot)
 	}
 	cmd := procgroup.Command(ctx, binPath, args...)
