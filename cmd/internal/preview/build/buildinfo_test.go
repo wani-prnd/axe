@@ -158,7 +158,7 @@ func TestPrepareFromBuildInfoResolvesRelativePathsAgainstRoot(t *testing.T) {
 	  "schemaVersion": 1, "module": "FeatureUI",
 	  "swiftcArguments": ["-module-name", "FeatureUI", "-target", "arm64-apple-ios17.0-simulator",
 	                      "-Xcc", "-fmodule-map-file=out/Clib.modulemap",
-	                      "-Xcc", "-fmodule-map-file=/abs/Other.modulemap", "-I", "rel/keep"],
+	                      "-Xcc", "-fmodule-map-file=/abs/Other.modulemap"],
 	  "sourceFiles": ["Sources/rel.swift", "/abs/abs.swift"],
 	  "moduleSearchPaths": ["out/mod", "/abs/mod"],
 	  "frameworkSearchPaths": ["out/fw"],
@@ -191,15 +191,5 @@ func TestPrepareFromBuildInfoResolvesRelativePathsAgainstRoot(t *testing.T) {
 	}
 	if target, _ := os.Readlink(dirs.IndexStorePath()); target != filepath.Join(root, "out/index") {
 		t.Errorf("index store link = %q", target)
-	}
-}
-
-// Only the module map value of "-Xcc -fmodule-map-file=" is rewritten.
-func TestResolvePathsLeavesOtherSwiftcArgumentsAlone(t *testing.T) {
-	info := &BuildInfo{SwiftcArguments: []string{"-I", "rel", "-Xcc", "-DFOO=bar", "-fmodule-map-file=rel.modulemap", "-Xcc", "-fmodule-map-file=m.modulemap"}}
-	info.resolvePaths("/root")
-	want := []string{"-I", "rel", "-Xcc", "-DFOO=bar", "-fmodule-map-file=rel.modulemap", "-Xcc", "-fmodule-map-file=/root/m.modulemap"}
-	if !slices.Equal(info.SwiftcArguments, want) {
-		t.Errorf("args = %v, want %v", info.SwiftcArguments, want)
 	}
 }

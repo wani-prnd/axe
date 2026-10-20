@@ -51,28 +51,24 @@ func LoadBuildInfo(path string) (*BuildInfo, error) {
 // resolvePaths makes every relative path in the build info absolute against root;
 // absolute paths are kept. The producer may write paths relative to the project.
 func (b *BuildInfo) resolvePaths(root string) {
-	abs := func(p string) string {
-		if p == "" || filepath.IsAbs(p) {
-			return p
-		}
-		return filepath.Join(root, p)
-	}
 	each := func(ps []string) {
 		for i, p := range ps {
-			ps[i] = abs(p)
+			ps[i] = resolveAgainst(root, p)
 		}
 	}
-	b.IndexStorePath = abs(b.IndexStorePath)
-	b.AppBundlePath = abs(b.AppBundlePath)
+	b.IndexStorePath = resolveAgainst(root, b.IndexStorePath)
+	b.AppBundlePath = resolveAgainst(root, b.AppBundlePath)
 	each(b.SourceFiles)
 	each(b.ModuleSearchPaths)
 	each(b.FrameworkSearchPaths)
-	const mapFlag = "-fmodule-map-file="
-	for i := 0; i+1 < len(b.SwiftcArguments); i++ {
-		if b.SwiftcArguments[i] == "-Xcc" && strings.HasPrefix(b.SwiftcArguments[i+1], mapFlag) {
-			b.SwiftcArguments[i+1] = mapFlag + abs(strings.TrimPrefix(b.SwiftcArguments[i+1], mapFlag))
-		}
+}
+
+// resolveAgainst joins a relative path onto root; absolute and empty paths are kept.
+func resolveAgainst(root, p string) string {
+	if p == "" || filepath.IsAbs(p) {
+		return p
 	}
+	return filepath.Join(root, p)
 }
 
 var targetTriple = regexp.MustCompile(`-ios([0-9.]+)-simulator$`)
@@ -143,6 +139,9 @@ func PrepareFromBuildInfo(path, projectRoot string, dirs ProjectDirs) (*Result, 
 	s, err := info.Settings()
 	if err != nil {
 		return nil, err
+	}
+	for i, m := range s.ExtraModuleMapFiles {
+		s.ExtraModuleMapFiles[i] = resolveAgainst(projectRoot, m)
 	}
 	link := dirs.IndexStorePath()
 	if info.IndexStorePath == "" {

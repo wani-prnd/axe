@@ -60,9 +60,7 @@ func indexReaderCommand(ctx context.Context, binPath, indexStorePath, sourceRoot
 		args = append(args, "--source-root", sourceRoot)
 	}
 	cmd := procgroup.Command(ctx, binPath, args...)
-	if sourceRoot != "" {
-		cmd.Dir = sourceRoot
-	}
+	cmd.Dir = sourceRoot
 	return cmd
 }
 

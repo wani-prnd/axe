@@ -22,7 +22,10 @@ func TestXcodeToolchainLibPath(t *testing.T) {
 // The reader resolves relative paths in the index store against its working directory, so it
 // must run in the source root that LoadIndexStore resolves them against.
 func TestIndexReaderCommandRunsInSourceRoot(t *testing.T) {
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	cmd := indexReaderCommand(context.Background(), "/bin/reader", "/idx", root)
 	if cmd.Dir != root {
 		t.Errorf("Dir = %q, want %q", cmd.Dir, root)
